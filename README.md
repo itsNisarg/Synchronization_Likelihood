@@ -1,4 +1,4 @@
-# Synchronization Likelihood: Non-linear Correlation Mrthod
+# Synchronization Likelihood: Non-linear Correlation Method
 
 ## Python Implementation of Stam &amp; Dijk's Synchronization Likelihood Method.
 
