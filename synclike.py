@@ -9,7 +9,80 @@ from numba import njit
 
 class Synchronization(object):
     """
-    Class for
+    Class for the Synchronization Likelihood Algorithm.
+    Parameters
+    ----------
+    data : ndarray
+        Time series.
+    m : int
+        Embedding dimension.
+    lag : int
+        Lag.
+    w1 : int
+        Lower bound of the window.
+    w2 : int
+        Upper bound of the window.
+    pref : float
+        Preferred probability.
+
+    Attributes
+    ----------
+    m : int
+        Embedding dimension.
+    lag : int
+        Lag.
+    w1 : int
+        Lower bound of the window.
+    w2 : int
+        Upper bound of the window.
+    pref : float
+        Preferred probability.
+    E : dict
+        Critical epsilon for each time series.
+    D : dict
+        Distances between all pairs of points in the embedding of each time series.
+    X : dict
+        Embedding of each time series.
+    data : ndarray
+        Time series.
+
+    Methods
+    -------
+    _get_embeddings(x, m, lag) : ndarray
+        Embedding of a time series x with embedding dimension m and lag l.
+    _get_distances(X) : ndarray
+        Compute the distances between all pairs of points in X.
+    _get_prob(D, eps, i, w1, w2) : float
+        Compute the probability of a point i being in the epsilon-neighborhood of another point j.
+    _obj(eps, D, i, w1, w2, pref) : float
+        Objective function for the root finding algorithm.
+    _get_critical_eps(D, pref, w1, w2, brack) : ndarray
+        Compute the critical epsilon for a given preferred probability.
+    _get_Hij(D1, D2, E1, E2, w1, w2) : ndarray
+        Compute the H matrix.
+    _calc_SL(D, E, H) : ndarray
+        Compute the synchronization likelihood matrix.
+    _avg(SL, w1, w2) : ndarray
+        Compute the average synchronization likelihood.
+    SyncLike(x, y) : ndarray
+        Compute the synchronization likelihood for two time series.
+    it(size) : generator
+        Generator for the synchronization likelihood of all pairs of time series.
+    synchronization() : ndarray
+        Compute the synchronization likelihood for all pairs of time series.
+
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from synclike import Synchronization
+    >>> data = np.random.random((5, 2500))
+    >>> SL = Synchronization(data, 5, 2, 100, 410, 0.05)
+    >>> SL.synchronization()
+
+    References
+    ----------
+    .. [1] Stam, C.J., and B.W. Van Dijk. "Synchronization Likelihood: An Unbiased Measure of Generalized Synchronization in Multivariate Data Sets." Physica D: Nonlinear Phenomena, vol. 163, no. 3-4, 2002, pp. 236-251,  https://doi.org/10.1016/S0167-2789(01)00386-4. Accessed 19 Dec. 2023.
     """
 
     def __init__(self, data, m, lag, w1, w2, pref) -> None:
@@ -21,7 +94,7 @@ class Synchronization(object):
 
     @staticmethod
     @njit
-    def _get_embeddings(x, m, lag):
+    def _get_embeddings(x, m, lag) -> np.ndarray:
         """Embedding of a time series x with embedding dimension m and lag l.
         Parameters
         ----------
@@ -46,7 +119,7 @@ class Synchronization(object):
 
     @staticmethod
     @njit
-    def _get_distances(X):
+    def _get_distances(X) -> np.ndarray:
         """Compute the distances between all pairs of points in X.
         Parameters
         ----------
@@ -68,7 +141,7 @@ class Synchronization(object):
 
     @staticmethod
     @njit
-    def _get_prob(D, eps, i, w1, w2):
+    def _get_prob(D, eps, i, w1, w2) -> float:
         """Compute the probability of a point i being in the
             epsilon-neighborhood of another point j.
         Parameters
@@ -97,7 +170,7 @@ class Synchronization(object):
         return summ / (2 * (w2 - w1))
 
     @staticmethod
-    def _obj(eps, D, i, w1, w2, pref):
+    def _obj(eps, D, i, w1, w2, pref) -> float:
         """Objective function for the root finding algorithm.
         Parameters
         ----------
@@ -122,7 +195,7 @@ class Synchronization(object):
         return Synchronization._get_prob(D, eps, i, w1, w2) - pref
 
     @staticmethod
-    def _get_critical_eps(D, pref, w1, w2, brack):
+    def _get_critical_eps(D, pref, w1, w2, brack) -> np.ndarray:
         """Compute the critical epsilon for a given preferred probability.
         Parameters
         ----------
@@ -152,7 +225,7 @@ class Synchronization(object):
 
     @staticmethod
     @njit
-    def _get_Hij(D1, D2, E1, E2, w1, w2):
+    def _get_Hij(D1, D2, E1, E2, w1, w2) -> np.ndarray:
         """Compute the H matrix.
         Parameters
         ----------
@@ -181,7 +254,7 @@ class Synchronization(object):
 
     @staticmethod
     @njit
-    def _calc_SL(D, E, H):
+    def _calc_SL(D, E, H) -> np.ndarray:
         """Compute the synchronization likelihood matrix.
         Parameters
         ----------
@@ -207,11 +280,11 @@ class Synchronization(object):
 
     @staticmethod
     @njit
-    def _avg(SL, w1, w2):
+    def _avg(sl, w1, w2) -> np.ndarray:
         """Compute the average synchronization likelihood.
         Parameters
         ----------
-        SL : ndarray
+        sl : ndarray
             Synchronization likelihood matrix.
         w1 : int
             Lower bound of the window.
@@ -223,35 +296,25 @@ class Synchronization(object):
         S : ndarray
             Average synchronization likelihood.
         """
-        S = np.zeros(len(SL), dtype=np.float32)
+        S = np.zeros(len(sl), dtype=np.float32)
 
-        for i in range(len(SL)):
+        for i in range(len(sl)):
             summ = 0
-            for j in range(len(SL)):
+            for j in range(len(sl)):
                 if (w1 < abs(i - j) < w2):
-                    summ += SL[i, j]
+                    summ += sl[i, j]
             S[i] = summ / (2 * (w2 - w1))
 
         return S
 
-    def SyncLike(self, x, y):
+    def SyncLike(self, x, y) -> np.ndarray:
         """Compute the synchronization likelihood for two time series.
         Parameters
         ----------
-        x : ndarray
-            Time series.
-        y : ndarray
-            Time series.
-        m : int
-            Embedding dimension.
-        lag : int
-            Lag.
-        w1 : int
-            Lower bound of the window.
-        w2 : int
-            Upper bound of the window.
-        pref : float
-            Preferred probability.
+        x : int
+            Index of the first time series.
+        y : int
+            Index of the second time series.
 
         Returns
         -------
@@ -301,12 +364,48 @@ class Synchronization(object):
 
     @staticmethod
     @njit
-    def it(size):
+    def it(size) -> tuple:
+        """Generator for the synchronization likelihood of all pairs of time series.
+        Parameters
+        ----------
+        size : int
+            Number of time series.
+
+        Yields
+        -------
+        x : int
+            Index of the first time series.
+        y : int
+            Index of the second time series.
+        """
+
         for x in range(size):
             for y in range(x + 1, size):
                 yield x, y
 
-    def synchronization(self):
+    def synchronization(self) -> None:
+        """Compute the synchronization likelihood for all pairs of time series.
+        Parameters
+        ----------
+        data : ndarray
+            Time series.
+        m : int
+            Embedding dimension.
+        lag : int
+            Lag.
+        w1 : int
+            Lower bound of the window.
+        w2 : int
+            Upper bound of the window.
+        pref : float
+            Preferred probability.
+
+        Returns
+        -------
+        out : ndarray
+            Synchronization likelihood matrix.
+        """
+
         size = self.data.shape[0]
         # t = self.data.shape[1]
         # out = [[None for i in range(size)] for j in range(size)]
@@ -327,7 +426,6 @@ class Synchronization(object):
         # for i in range(size):
         #     out[i][i] = np.ones_like(out[0][1])
         # out = np.array(out, dtype=np.float16)
-        # return True
 
 
 if __name__ == "__main__":
