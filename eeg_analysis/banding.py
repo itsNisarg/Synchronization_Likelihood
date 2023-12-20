@@ -19,7 +19,7 @@ def load_data(file):
     raw.set_channel_types({'EOG': 'eog', 'ECG': 'ecg'})
     raw.set_eeg_reference(['Cz'])
     # raw.info['bads'] = ['Cz']
-    raw.filter(l_freq=0.5, h_freq=250, n_jobs=cpu_count())
+    raw.filter(l_freq=0.5, h_freq=250, n_jobs=4)
     raw.notch_filter(50)
     ds_raw = raw.copy().resample(sfreq=500)
     return ds_raw
