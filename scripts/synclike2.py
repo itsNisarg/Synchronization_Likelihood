@@ -4,7 +4,7 @@ import sys
 import os
 import numpy as np
 import scipy as sp
-from scipy.io import savemat
+from scipy.io import savemat, loadmat
 from numba import njit
 
 
@@ -385,7 +385,7 @@ class Synchronization(object):
         SL2 = Synchronization._avg(SLij2, w1, w2)
         print("SyncLike: Computing Average SL Done")
 
-        return SL1, SL2
+        return SL1/0.05, SL2/0.05
 
     @staticmethod
     @njit
@@ -437,6 +437,45 @@ class Synchronization(object):
         # for i in range(size):
         #     out[i][i] = np.ones_like(out[0][1])
         # out = np.array(out, dtype=np.float16)
+
+    def connectivity(self) -> np.ndarray:
+        """Compute the connectivity matrix.
+
+        Returns
+        -------
+        out : ndarray
+            Connectivity matrix.
+        """
+        size = self.data.shape[0]
+
+        out = [None] * size
+
+        if (not os.path.exists("./sync")):
+            os.mkdir("sync")
+            self.synchronization()
+
+        os.chdir("sync")
+
+        for i, j in Synchronization.it(size):
+            SL1 = loadmat(f"sync_{i}_{j}.mat")["data"].reshape(-1)
+            SL2 = loadmat(f"sync_{j}_{i}.mat")["data"].reshape(-1)
+
+            if (out[i] is None):
+                out[i] = SL1
+            else:
+                out[i] += SL1
+
+            if (out[j] is None):
+                out[j] = SL2
+            else:
+                out[j] += SL2
+
+        os.chdir("..")
+
+        out = np.array(out) / (size-1)
+        savemat("connectivity.mat", {"data": out})
+
+        return out
 
 
 if __name__ == "__main__":
