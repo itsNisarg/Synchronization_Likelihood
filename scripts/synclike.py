@@ -3,7 +3,7 @@
 import os
 import numpy as np
 import scipy as sp
-from scipy.io import savemat
+from scipy.io import savemat, loadmat
 from numba import njit
 
 
@@ -360,7 +360,7 @@ class Synchronization(object):
         SL1 = Synchronization._avg(SLij1, w1, w2)
         SL2 = Synchronization._avg(SLij2, w1, w2)
 
-        return SL1, SL2
+        return SL1/0.05, SL2/0.05
 
     @staticmethod
     @njit
@@ -385,20 +385,6 @@ class Synchronization(object):
 
     def synchronization(self) -> None:
         """Compute the synchronization likelihood for all pairs of time series.
-        Parameters
-        ----------
-        data : ndarray
-            Time series.
-        m : int
-            Embedding dimension.
-        lag : int
-            Lag.
-        w1 : int
-            Lower bound of the window.
-        w2 : int
-            Upper bound of the window.
-        pref : float
-            Preferred probability.
 
         Returns
         -------
@@ -412,24 +398,68 @@ class Synchronization(object):
 
         if (not os.path.exists("./sync")):
             os.mkdir("sync")
-            os.chdir("sync")
+
+        os.chdir("sync")
+
         for i, j in Synchronization.it(size):
-            # out[i][j], out[j][i] = Synchronization.SyncLike(self, i, j)
+            if (os.path.exists(f"sync_{i}_{j}.mat") and os.path.exists(f"sync_{j}_{i}.mat")):
+                continue
+
             print(f"SAVING {i} {j}")
             SL1, SL2 = Synchronization.SyncLike(self, i, j)
-            savemat(f"sync_{i}_{j}", {"data": SL1})
-            savemat(f"sync_{j}_{i}", {"data": SL2})
+            savemat(f"sync_{i}_{j}.mat", {"data": SL1})
+            savemat(f"sync_{j}_{i}.mat", {"data": SL2})
 
         os.chdir("..")
-        print(os.getcwd())
 
         # for i in range(size):
         #     out[i][i] = np.ones_like(out[0][1])
         # out = np.array(out, dtype=np.float16)
 
+    def connectivity(self) -> np.ndarray:
+        """Compute the connectivity matrix.
+
+        Returns
+        -------
+        out : ndarray
+            Connectivity matrix.
+        """
+        size = self.data.shape[0]
+
+        out = [None] * size
+
+        if (not os.path.exists("./sync")):
+            os.mkdir("sync")
+            self.synchronization()
+
+        os.chdir("sync")
+
+        for i, j in Synchronization.it(size):
+            SL1 = loadmat(f"sync_{i}_{j}.mat")["data"].reshape(-1)
+            SL2 = loadmat(f"sync_{j}_{i}.mat")["data"].reshape(-1)
+
+            if (out[i] is None):
+                out[i] = SL1
+            else:
+                out[i] += SL1
+
+            if (out[j] is None):
+                out[j] = SL2
+            else:
+                out[j] += SL2
+
+        os.chdir("..")
+
+        out = np.array(out) / (size-1)
+        savemat("connectivity.mat", {"data": out})
+
+        return out
+
 
 if __name__ == "__main__":
     data = np.random.random((5, 2500))
     SL = Synchronization(data, 5, 2, 100, 410, 0.05)
-    SL.synchronization()
+    # SL.synchronization()
+    connectivity = SL.connectivity()
+    print(connectivity.shape)
     # print(output.size * output.itemsize)
