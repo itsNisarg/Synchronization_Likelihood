@@ -430,7 +430,8 @@ class Synchronization(object):
 
         if (not os.path.exists("./sync")):
             os.mkdir("sync")
-            self.synchronization()
+
+        self.synchronization()
 
         os.chdir("sync")
 
